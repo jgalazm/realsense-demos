@@ -22,26 +22,36 @@ mode = True # if True, draw rectangle. Press 'm' to toggle to curve
 ix,iy = -1,-1
 
 # mouse callback function
+previous_point = ()
+initial_point = ()
 def draw_circle(event,x,y,flags,param):
-    global ix,iy,drawing,mode
+    global ix,iy,drawing,mode, previous_point, initial_point
 
     if event == cv2.EVENT_LBUTTONDOWN:
         drawing = True
         ix,iy = x,y
+        previous_point = (x,y)
+        initial_point = (x,y)
 
     elif event == cv2.EVENT_MOUSEMOVE:
         if drawing == True:
             if mode == True:
                 cv2.rectangle(img,(ix,iy),(x,y),(0,255,0),-1)
             else:
-                cv2.circle(img,(x,y),5,(0,0,255),-1)
+                # cv2.circle(img,(x,y),5,(0,0,255),-1)
+                cv2.line(img, previous_point, (x,y), (0,0,255) )
+                previous_point = (x,y)
 
     elif event == cv2.EVENT_LBUTTONUP:
         drawing = False
         if mode == True:
             cv2.rectangle(img,(ix,iy),(x,y),(0,255,0),-1)
         else:
-            cv2.circle(img,(x,y),5,(0,0,255),-1)
+            # cv2.circle(img,(x,y),5,(0,0,255),-1)
+            cv2.line(img, previous_point, (x,y), (255,0,0) )
+            cv2.line(img, (x,y), initial_point, (255,0,0) )
+            previous_point = []
+            
 
     cv2.imshow('image',img)
     
@@ -55,9 +65,9 @@ for i in range(5):
     # This call waits until a new coherent set of frames is available on a device
     # Calls to get_frame_data(...) and get_frame_timestamp(...) on a device will return stable values until wait_for_frames(...) is called
     frames = pipeline.wait_for_frames()
-    depth = frames.get_depth_frame()
-    depth_data = frames[1].as_frame().get_data()
-    np_image = np.asanyarray(depth_data)
+    depth_data = frames[0].as_frame().get_data()
+    color_data = frames[1].as_frame().get_data()
+    np_image = np.asanyarray(color_data)
     img = cv2.cvtColor(np_image, cv2.COLOR_BGR2RGB)
 
 
