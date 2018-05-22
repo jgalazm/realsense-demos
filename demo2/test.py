@@ -2,6 +2,9 @@
 import pyrealsense2 as rs
 import cv2
 import numpy as np
+depth_image = None
+color_image = None
+frames = None
 
 # Create a context object. This object owns the handles to all connected realsense devices
 pipeline = rs.pipeline()
@@ -24,14 +27,16 @@ ix,iy = -1,-1
 # mouse callback function
 previous_point = ()
 initial_point = ()
+contour_points = []
 def draw_circle(event,x,y,flags,param):
-    global ix,iy,drawing,mode, previous_point, initial_point
+    global ix,iy,drawing,mode, previous_point, initial_point, contour_points
 
     if event == cv2.EVENT_LBUTTONDOWN:
         drawing = True
         ix,iy = x,y
         previous_point = (x,y)
         initial_point = (x,y)
+        contour_points.append([x,y])
 
     elif event == cv2.EVENT_MOUSEMOVE:
         if drawing == True:
@@ -41,6 +46,7 @@ def draw_circle(event,x,y,flags,param):
                 # cv2.circle(img,(x,y),5,(0,0,255),-1)
                 cv2.line(img, previous_point, (x,y), (0,0,255) )
                 previous_point = (x,y)
+                contour_points.append([x,y])
 
     elif event == cv2.EVENT_LBUTTONUP:
         drawing = False
@@ -51,10 +57,64 @@ def draw_circle(event,x,y,flags,param):
             cv2.line(img, previous_point, (x,y), (255,0,0) )
             cv2.line(img, (x,y), initial_point, (255,0,0) )
             previous_point = []
+
+            do_everything(depth_image, contour_points)
+            contour_points = []
             
 
     cv2.imshow('image',img)
+
+def  get_points_cloud(depth_image):
+    nrows = depth_image.shape[0]
+    ncols = depth_image.shape[1]
+
+    # distance to middle pixel
+    d = depth_image[int(nrows/2), int(ncols/2)]
+
+    pc = rs.pointcloud()
+    points = pc.calculate(frames[0])
+
+    vertices = np.asanyarray(points.get_vertices())
+
+    vertices = np.array([[vi for vi in v] for v in vertices])[::3,:]
+
+    import matplotlib.pyplot as plt
+    plt.scatter(vertices[:,0], vertices[:,1], c=vertices[:,2],linewidth=0,cmap=plt.cm.jet)
+    plt.show()
+
     
+
+
+def  get_mesh(points):
+    pass
+
+def  get_masked_triangles(contour_points, triangles, depth_image):
+    pass
+
+def  get_area_from_triangles(masked_triangles, points):
+    pass
+
+def do_everything(depth_image, contour_points):
+
+    # obtener nube de puntos
+
+    points = get_points_cloud(depth_image)
+
+    # triangular la malla de pixeles
+
+    triangles = get_mesh(points)
+
+    # seleccionar triangulos dentro del contorno en coordenadas de pixeles
+
+    masked_triangles = get_masked_triangles(contour_points, triangles, depth_image)
+
+    # calcular area
+
+    area = get_area_from_triangles(masked_triangles, points)
+
+
+
+
 
 # Create a black image, a window and bind the function to window
 cv2.namedWindow('image')
@@ -67,8 +127,9 @@ for i in range(5):
     frames = pipeline.wait_for_frames()
     depth_data = frames[0].as_frame().get_data()
     color_data = frames[1].as_frame().get_data()
-    np_image = np.asanyarray(color_data)
-    img = cv2.cvtColor(np_image, cv2.COLOR_BGR2RGB)
+    depth_image = np.asanyarray(depth_data)/100 #cm?
+    color_image = np.asanyarray(color_data)
+    img = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
 
 
     # Display the resulting frame
@@ -86,19 +147,4 @@ while(1):
         break
 
 cv2.destroyAllWindows()
-    # if not depth: continue
 
-    # # Print a simple text-based representation of the image, by breaking it into 10x20 pixel regions and approximating the coverage of pixels within one meter
-    # coverage = [0]*64
-    # for y in range(480):
-    #     for x in range(640):
-    #         dist = depth.get_distance(x, y)
-    #         if 0 < dist and dist < 1:
-    #             coverage[int(x/10)] += 1
-
-    #     if y%20 is 19:
-    #         line = ""
-    #         for c in coverage:
-    #             line += " .:nhBXWW"[int(c/25)]
-    #         coverage = [0]*64
-    #         print(line)
