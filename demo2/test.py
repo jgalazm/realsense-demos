@@ -28,6 +28,7 @@ ix,iy = -1,-1
 previous_point = ()
 initial_point = ()
 contour_points = []
+
 def draw_circle(event,x,y,flags,param):
     global ix,iy,drawing,mode, previous_point, initial_point, contour_points
 
@@ -68,20 +69,62 @@ def  get_points_cloud(depth_image):
     nrows = depth_image.shape[0]
     ncols = depth_image.shape[1]
 
+    xmin = np.array(contour_points)[:,0].min()
+    xmax = np.array(contour_points)[:,0].max()
+    ymin = np.array(contour_points)[:,1].min()
+    ymax = np.array(contour_points)[:,1].max()
+
+
     # distance to middle pixel
     d = depth_image[int(nrows/2), int(ncols/2)]
 
+
+    align = rs.align(rs.stream.color)
+    aligned_frames = align.process(frames)
+    aligned_depth_frame = aligned_frames.get_depth_frame()
+    color_frame = aligned_frames.get_color_frame()
+
+    depth_image = np.asanyarray(aligned_depth_frame.get_data())
+    color_image = np.asanyarray(color_frame.get_data())
+
     pc = rs.pointcloud()
-    points = pc.calculate(frames[0])
+    pc.map_to(aligned_depth_frame)
+    points = pc.calculate(color_frame)
+
+    # pc = rs.pointcloud()
+    # points = pc.calculate(frames[0])
+
+
 
     vertices = np.asanyarray(points.get_vertices())
 
-    vertices = np.array([[vi for vi in v] for v in vertices])[::3,:]
+    vertices = np.array([list(v) for v in vertices])[::3,:]
 
     import matplotlib.pyplot as plt
     plt.scatter(vertices[:,0], vertices[:,1], c=vertices[:,2],linewidth=0,cmap=plt.cm.jet)
+
+    # from mpl_toolkits.mplot3d import Axes3D
+    # fig = plt.figure(figsize=(4,4))
+    # ax = fig.add_subplot(1, 1, 1, projection='3d')
+    # ax.scatter3D(vertices[::10,0],vertices[::10,1],vertices[::10,2])
+    # # https://github.com/IntelRealSense/librealsense/blob/5e73f7bb906a3cbec8ae43e888f182cc56c18692/include/librealsense2/rsutil.h#L15
+
     plt.show()
 
+
+    # grey_color = 153
+    # clipping_distance = 10000
+    # depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channels
+    # bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, color_image)
+    
+
+    # Render images
+    # depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
+    # images = np.hstack((bg_removed, depth_colormap))
+    # cv2.namedWindow('Align Example', cv2.WINDOW_AUTOSIZE)
+    # cv2.imshow('Align Example', images)
+    # cv2.waitKey(1)
+    # points_image_coord = pc.calculate(frames[1])
     
 
 
@@ -94,7 +137,7 @@ def  get_masked_triangles(contour_points, triangles, depth_image):
 def  get_area_from_triangles(masked_triangles, points):
     pass
 
-def do_everything(depth_image, contour_points):
+def do_everything(depth_image, contour_points):     
 
     # obtener nube de puntos
 
